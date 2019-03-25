@@ -1,0 +1,78 @@
+---
+- name: Add backports repository
+  apt_repository:
+    filename: backports
+    repo: deb http://http.debian.net/debian jessie-backports main
+    state: present
+    update_cache: yes
+  when: ansible_distribution == 'Debian' and ansible_distribution_release == 'jessie'
+
+- name: Install apt requirements
+  apt:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - "{{ ca_certificates_java }}"
+    - openjdk-8-jre-headless
+    - sudo
+
+- name: correct java version selected
+  alternatives:
+    name: java
+    path: /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+
+- name: Ensure jenkins user
+  user:
+    name: '{{ jenkins_username }}'
+    home: '{{ jenkins_home }}'
+    shell: /bin/bash
+    state: present
+
+- name: Make jenkins user sudoer
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    line: '{{ jenkins_username }}	ALL=(ALL:ALL) NOPASSWD:ALL'
+    validate: 'visudo -cf %s'
+
+- name: Add master public key to authorized keys
+  authorized_key:
+    user: '{{ jenkins_username }}'
+    key: '{{ jenkins_authorized_key }}'
+
+- name: Check previous node
+  jenkins_api:
+    jenkins_url: '{{ jenkins_master_url }}'
+    command: node_exists
+    args:
+      - '{{ jenkins_node_name or ansible_hostname }}'
+  register: result
+  when: not ansible_check_mode
+
+- name: Delete previous node
+  jenkins_api:
+    jenkins_url: '{{ jenkins_master_url }}'
+    command: delete_node
+    args:
+      - '{{ jenkins_node_name or ansible_hostname }}'
+  when:
+    - not ansible_check_mode
+    - result.node_exists
+
+- name: Create jenkins node
+  jenkins_api:
+    jenkins_url: '{{ jenkins_master_url }}'
+    command: create_node
+    args:
+      - '{{ jenkins_node_name or ansible_hostname }}'
+    kwargs:
+      numExecutors: '{{ jenkins_node_executors }}'
+      remoteFS: '{{ jenkins_home }}'
+      labels: '{{ jenkins_node_labels }}'
+      launcher: hudson.plugins.sshslaves.SSHLauncher
+      launcher_params:
+        port: "{{ jenkins_node_port }}"
+        username: '{{ jenkins_username }}'
+        credentialsId: '{{ jenkins_node_credentials_id }}'
+        host: '{{ (jenkins_node_host or ansible_eth0.ipv4.address)|trim }}'
+  when: not ansible_check_mode

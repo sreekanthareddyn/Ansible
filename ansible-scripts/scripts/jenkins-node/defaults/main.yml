@@ -1,0 +1,17 @@
+---
+# UNIX user vars
+jenkins_authorized_key: null
+jenkins_home: /var/lib/jenkins
+jenkins_username: jenkins
+
+# Jenkins node vars
+jenkins_master_url: null
+jenkins_node_credentials_id: null
+jenkins_node_executors: 2
+jenkins_node_host: null
+jenkins_node_port: 22
+jenkins_node_labels: null
+jenkins_node_name: null
+
+# packages versions
+ca_certificates_java: ca-certificates-java=20161107~bpo8+1

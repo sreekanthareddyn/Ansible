@@ -1,0 +1,44 @@
+---
+###############################################################################################
+## REGISTRY
+###############################################################################################
+- block:
+  - name: Create directory for registry keys
+    file:
+      path: "/etc/docker/certs.d/{{front_hostname}}:5000/"
+      state: directory
+
+  - name: Check and delete previous certificates
+    file: 
+      path: "{{ item }}"
+      state: absent
+    with_items: 
+      - "/opt/docker_registry/certs/{{front_hostname}}.cert"
+      - "/opt/docker_registry/certs/{{front_hostname}}.key"
+      - "/etc/docker/certs.d/{{front_hostname}}:5000/{{front_hostname}}.cert"
+      - "/etc/docker/certs.d/{{front_hostname}}:5000/{{front_hostname}}.key"
+      - "/etc/docker/certs.d/{{front_hostname}}:5000/ca.crt"
+  
+  
+  - name: Copy certificates from frontend
+    copy: 
+      src: "{{ item.src }}" 
+      dest: "{{ item.dest }}"
+    with_items:
+      - src: "/opt/docker_registry/certs/{{front_hostname}}.cert"
+        dest: "/opt/docker_registry/certs/{{front_hostname}}.cert"
+      - src: "/opt/docker_registry/certs/{{front_hostname}}.key"
+        dest: "/opt/docker_registry/certs/{{front_hostname}}.key"
+      - src: "/opt/docker_registry/certs/{{front_hostname}}.cert"
+        dest: "/etc/docker/certs.d/{{front_hostname}}:5000/{{front_hostname}}.cert"
+      - src: "/opt/docker_registry/certs/{{front_hostname}}.key"
+        dest: "/etc/docker/certs.d/{{front_hostname}}:5000/{{front_hostname}}.key"
+      - src: /opt/docker_registry/certs/ca.crt
+        dest: "/etc/docker/certs.d/{{front_hostname}}:5000/ca.crt"
+    when: docker_registry_certificates == "front"
+
+  - name: Copy certificates from otherwise
+    include: ssh_get_registry_certificates.yml
+    when: docker_registry_certificates == "otherwise"
+
+  when: (docker_installation == "registry") or (docker_installation == "both")
